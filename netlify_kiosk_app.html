@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart STO Kiosk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <!-- Konfigurasi Tema Greyscale -->
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { gray: { 850: '#1f2937', 900: '#111827', 950: '#0b0f19' } } } }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Layout Terkunci Anti-Scroll (Layar Penuh) */
+        body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #f3f4f6; color: #111827; margin: 0; padding: 0; height: 100vh; width: 100vw; }
+        #app-container { display: flex; flex-direction: column; height: 100%; width: 100%; max-width: 600px; margin: 0 auto; background: white; box-shadow: 0 0 15px rgba(0,0,0,0.1); position: relative; }
+        
+        /* Scrollbar Khusus untuk area dalam */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
+        
+        /* Kamera Container */
+        #scanner-view, #studio-view { width: 100%; flex: 1; background-color: #000; position: relative; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+        #reader video { object-fit: cover; width: 100%; height: 100%; }
+        
+        /* CCTV Canvas (Watermark Render) */
+        #cctv-canvas { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* Toast Notification */
+        .toast { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); background-color: #1f2937; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <!-- ================= 1. HEADER (TETAP) ================= -->
+        <div class="bg-white border-b border-gray-300 shadow-sm shrink-0 z-20">
+            <div class="p-3 flex justify-between items-center bg-gray-100">
+                <h1 class="text-lg font-bold tracking-tight text-gray-800">STO IT ASSET</h1>
+                <button onclick="fetchInitialData()" class="p-2 bg-white rounded border border-gray-300 shadow-sm active:bg-gray-200 text-xs font-bold text-gray-600 flex gap-1 items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Sinkron
+                </button>
+            </div>
+            
+            <!-- Progress Bar Universal -->
+            <div class="w-full h-1 bg-gray-200">
+                <div id="progress-bar" class="h-full bg-gray-800 transition-all duration-300" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- ================= 2. AKORDION SUMMARY (Scrollable Y) ================= -->
+        <div id="accordion-view" class="bg-gray-50 p-2 shrink-0 border-b border-gray-300 max-h-[25vh] overflow-y-auto custom-scrollbar">
+            <div class="text-center py-4 text-gray-400 text-xs font-medium animate-pulse">Mengunduh Master Data...</div>
+        </div>
+
+        <!-- ================= 3. SCANNER VIEW (Mode Pencarian Barcode) ================= -->
+        <div id="scanner-view">
+            <div id="reader" class="w-full h-full"></div>
+            <div class="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-10">
+                <div class="bg-black/70 backdrop-blur px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest shadow-lg border border-gray-600">SCAN BARCODE/QR</div>
+            </div>
+        </div>
+
+        <!-- ================= 4. CCTV STUDIO & SMART FORM (Mode Perekaman) ================= -->
+        <div id="studio-view" class="hidden bg-gray-100 flex-1 flex-col h-full relative">
+            
+            <!-- Layar CCTV (Canvas Rendering Watermark) -->
+            <div class="relative w-full h-[40vh] bg-black shrink-0 overflow-hidden border-b-4 border-gray-800">
+                <video id="raw-video" class="hidden" autoplay playsinline muted></video>
+                <canvas id="cctv-canvas"></canvas>
+                
+                <!-- Indikator Merekam (Khusus Video) -->
+                <div id="rec-indicator" class="absolute top-3 right-3 flex items-center gap-1 hidden">
+                    <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    <span class="text-white text-xs font-bold font-mono tracking-widest bg-black/50 px-1 rounded" id="rec-timer">00:00</span>
+                </div>
+            </div>
+
+            <!-- SMART FORM OVERLAY (Bisa Di-Scroll Lokal) -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 bg-gray-50 relative pb-20">
+                
+                <!-- Info Otomatis -->
+                <div class="bg-white p-3 rounded border border-gray-200 shadow-sm flex flex-col gap-1">
+                    <div class="flex justify-between items-center border-b border-gray-100 pb-1">
+                        <span class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">SN Asset</span>
+                        <span id="form-sn" class="font-mono font-bold text-gray-800 text-sm">-</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-1">
+                        <span class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Jenis</span>
+                        <span id="form-jenis" class="font-bold text-gray-800 text-sm">-</span>
+                    </div>
+                </div>
+
+                <!-- 2 Kolom: Fisik & Status -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Fisik Asset</label>
+                        <select id="inp-fisik" class="bg-white border border-gray-300 text-gray-900 text-xs rounded block w-full p-2 font-semibold shadow-sm focus:ring-0">
+                            <option value="Fisik Asset Ada" selected>Fisik Ada</option>
+                            <option value="Fisik Asset Tidak Ada">Fidak Ada</option>
+                            <option value="SN Tidak Diketahui">SN Unknown</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Kondisi</label>
+                        <select id="inp-kondisi" onchange="checkKondisi()" class="bg-white border border-gray-300 text-gray-900 text-xs rounded block w-full p-2 font-semibold shadow-sm focus:ring-0">
+                            <option value="Good" selected>Good</option>
+                            <option value="Damaged">Damaged</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Baris: Penggunaan & Status Asset -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Penggunaan</label>
+                        <select id="inp-penggunaan" class="bg-white border border-gray-300 text-gray-900 text-xs rounded block w-full p-2 font-semibold shadow-sm focus:ring-0">
+                            <option value="Daily Ops" selected>Daily Ops</option>
+                            <option value="Cache">Cache</option>
+                            <option value="EHA">EHA</option>
+                            <option value="DKM">DKM</option>
+                            <option value="ESB">ESB</option>
+                            <option value="Seller">Seller</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status Asset</label>
+                        <select id="inp-status" class="bg-white border border-gray-300 text-gray-900 text-xs rounded block w-full p-2 font-semibold shadow-sm focus:ring-0">
+                            <option value="Good" selected>Good (Opsional)</option>
+                            <option value="Return">Return</option>
+                            <option value="Repair">Repair</option>
+                            <option value="Damaged">Damaged</option>
+                            <option value="Lost">Lost</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Box Khusus Jika Damaged -->
+                <div id="box-damage" class="flex-col gap-1 hidden bg-gray-200/50 p-3 rounded border border-gray-300 shadow-inner mt-1">
+                    <label class="text-[10px] font-bold text-gray-700 uppercase mb-1 block">Penyebab Damaged Wajib Diisi</label>
+                    <select id="inp-penyebab" class="bg-white border border-gray-400 text-gray-900 text-xs rounded w-full p-2 mb-2 shadow-sm focus:ring-0">
+                        <option value="-" selected>Pilih Penyebab...</option>
+                        <option value="Mishandling (Kelalaian)">Mishandling (Jatuh, Cairan)</option>
+                        <option value="Force Majeure (Bencana)">Force Majeure (Bencana)</option>
+                        <option value="Electrical Issue">Electrical Issue (Konslet)</option>
+                        <option value="Manufacturing Defect">Manufacturing Defect (Pabrik)</option>
+                        <option value="Operational Wear & Tear">Operational Wear & Tear (Usia)</option>
+                    </select>
+                    <div class="flex items-start gap-1 text-[9px] text-gray-600 bg-gray-300/50 p-1.5 rounded border border-gray-300 leading-tight">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span>Aset Damaged. Link IT Ticket wajib dilengkapi via Laptop/PC oleh Admin nanti.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area Eksekusi (Fixed Bottom) -->
+            <div class="absolute bottom-0 left-0 right-0 bg-white p-3 border-t border-gray-300 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20 flex gap-2">
+                <button onclick="cancelStudio()" id="btn-cancel" class="bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded shadow-sm active:bg-gray-300 transition-colors text-sm">BATAL</button>
+                <button onclick="executeCapture()" id="btn-capture" class="flex-1 bg-gray-800 text-white font-bold py-3 rounded shadow-lg active:bg-gray-900 transition-all text-sm flex justify-center items-center gap-2">
+                    <span id="txt-capture">REKAM & UPLOAD</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Audio Chime Base64 (Bunyi Beep Scanner) -->
+    <audio id="chime" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU..."></audio>
+    <div id="toast-msg" class="toast">Notifikasi</div>
+
+    <script>
+        // =========================================================================
+        // 🚨 CONFIGURASI UTAMA
+        // =========================================================================
+        // GANTI DENGAN URL DEPLOYMENT WEB APP GAS ANDA
+        const GAS_API_URL = "MASUKKAN_URL_GAS_ANDA_DISINI";
+        
+        let html5QrCode;
+        let masterDbCache = {}; 
+        
+        // State Kiosk
+        let currSN = "";
+        let currJenis = "";
+        let currMediaType = "photo"; // 'photo' atau 'video'
+        let locString = "Lokasi: Menunggu GPS...";
+        
+        // State Perekaman Studio
+        let streamActive = null;
+        let cctvInterval = null;
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let recordTimer = 0;
+        let recordInterval;
+
+        // =========================================================================
+        // 1. UTILITAS DASAR (Toast & Progress)
+        // =========================================================================
+        function showToast(msg) {
+            const t = document.getElementById('toast-msg');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function setProgress(percent) {
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+
+        // =========================================================================
+        // 2. INISIALISASI & FETCH DATA MASTER
+        // =========================================================================
+        document.addEventListener("DOMContentLoaded", () => {
+            if(GAS_API_URL === "MASUKKAN_URL_GAS_ANDA_DISINI") showToast("Developer: Setel GAS_API_URL di kodenya!");
+            
+            // Minta Izin Lokasi di awal
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => { locString = `Lat: ${pos.coords.latitude.toFixed(5)}, Lon: ${pos.coords.longitude.toFixed(5)}`; },
+                    err => { locString = "Lokasi: GPS Ditolak/Gagal"; }
+                );
+            }
+            
+            fetchInitialData();
+            initScanner();
+        });
+
+        function fetchInitialData() {
+            setProgress(30);
+            fetch(GAS_API_URL + "?action=getInitialData")
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        masterDbCache = res.masterDb;
+                        renderAccordion(res.summary);
+                        setProgress(100);
+                        setTimeout(()=>setProgress(0), 1000);
+                        showToast("Sistem Siap (Data Tersinkron)");
+                    } else { showToast("Gagal Sinkronisasi Master"); }
+                })
+                .catch(err => { showToast("API Tidak Terjangkau!"); });
+        }
+
+        function renderAccordion(summaryObj) {
+            const container = document.getElementById('accordion-view');
+            container.innerHTML = "";
+            for (const [jenis, data] of Object.entries(summaryObj)) {
+                let div = document.createElement('div');
+                div.className = "bg-white mb-1.5 p-2 rounded shadow-sm border border-gray-200 flex justify-between items-center text-sm";
+                div.innerHTML = `
+                    <span class="font-bold text-gray-700">${jenis}</span>
+                    <span class="bg-gray-100 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-gray-600 border border-gray-300">${data.done} / ${data.total}</span>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        // =========================================================================
+        // 3. MESIN SCANNER (PRIORITAS 1D BARCODE)
+        // =========================================================================
+        function initScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            // Setel prioritas baca: Barcode Code128, Code39, dan QR
+            const config = { 
+                fps: 15, 
+                qrbox: { width: 280, height: 120 }, // Kotak memanjang cocok untuk barcode
+                formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.QR_CODE ]
+            };
+            
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                showToast("Kamera gagal diakses. Pastikan izin browser hidup.");
+            });
+        }
+
+        function onScanSuccess(decodedText) {
+            let sn = decodedText.trim();
+            if (!masterDbCache[sn]) return; // Anti-sampah, abaikan jika tidak ada di DB lokal
+
+            document.getElementById('chime').play().catch(()=>{});
+            
+            currSN = sn;
+            currJenis = masterDbCache[sn];
+            
+            // Logika Jenis Media
+            const jLower = currJenis.toLowerCase();
+            if (jLower.includes("laptop") || jLower.includes("smartphone") || jLower.includes("handphone")) {
+                currMediaType = "video";
+            } else {
+                currMediaType = "photo";
+            }
+
+            openStudioForm();
+        }
+
+        // =========================================================================
+        // 4. CCTV STUDIO (CANVAS WATERMARK & SMART FORM)
+        // =========================================================================
+        function checkKondisi() {
+            const val = document.getElementById('inp-kondisi').value;
+            const box = document.getElementById('box-damage');
+            if (val === "Damaged") {
+                box.classList.remove('hidden'); box.classList.add('flex');
+            } else {
+                box.classList.add('hidden'); box.classList.remove('flex');
+                document.getElementById('inp-penyebab').value = "-";
+            }
+        }
+
+        function openStudioForm() {
+            if(html5QrCode.isScanning) html5QrCode.pause();
+            document.getElementById('scanner-view').classList.add('hidden');
+            document.getElementById('accordion-view').classList.add('hidden');
+            document.getElementById('studio-view').classList.remove('hidden');
+            document.getElementById('studio-view').classList.add('flex');
+
+            // Setup Form Default
+            document.getElementById('form-sn').textContent = currSN;
+            document.getElementById('form-jenis').textContent = currJenis;
+            document.getElementById('inp-fisik').value = "Fisik Asset Ada";
+            document.getElementById('inp-kondisi').value = "Good";
+            document.getElementById('inp-penggunaan').value = "Daily Ops";
+            document.getElementById('inp-status').value = "Good";
+            checkKondisi();
+
+            document.getElementById('txt-capture').textContent = currMediaType === "video" ? "MULA REKAM VIDEO" : "JEPRET FOTO & UPLOAD";
+            
+            startCctvStream();
+        }
+
+        function cancelStudio() {
+            stopCctvStream();
+            document.getElementById('studio-view').classList.add('hidden');
+            document.getElementById('studio-view').classList.remove('flex');
+            document.getElementById('accordion-view').classList.remove('hidden');
+            document.getElementById('scanner-view').classList.remove('hidden');
+            if(html5QrCode.isScanning) html5QrCode.resume();
+        }
+
+        async function startCctvStream() {
+            const video = document.getElementById('raw-video');
+            const canvas = document.getElementById('cctv-canvas');
+            const ctx = canvas.getContext('2d');
+
+            try {
+                // Resolusi diturunkan agar file upload aman & HP tidak nge-lag (VGA / 720p max)
+                streamActive = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, 
+                    audio: false // STO tidak butuh suara agar size lebih kecil
+                });
+                video.srcObject = streamActive;
+                
+                video.onplay = () => {
+                    // Set resolusi canvas sesuai stream video
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    // Loop menggambar video ke canvas + teks Watermark (60 fps)
+                    cctvInterval = setInterval(() => {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        
+                        // Konfigurasi Teks
+                        ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Background semi-transparan
+                        ctx.fillRect(10, canvas.height - 70, canvas.width - 20, 60); // Kotak
+                        
+                        ctx.fillStyle = "white";
+                        ctx.font = "bold 16px monospace";
+                        
+                        // Baris 1: SN & Jenis
+                        ctx.fillText(`SN: ${currSN} | Tipe: ${currJenis}`, 15, canvas.height - 45);
+                        
+                        // Baris 2: Timestamp & GPS
+                        const now = new Date();
+                        const timeStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
+                        ctx.font = "12px monospace";
+                        ctx.fillText(`${timeStr} | ${locString}`, 15, canvas.height - 22);
+                        
+                    }, 1000 / 30); // 30 fps render
+                };
+            } catch (err) {
+                showToast("Gagal akses kamera Canvas.");
+            }
+        }
+
+        function stopCctvStream() {
+            if (cctvInterval) clearInterval(cctvInterval);
+            if (streamActive) streamActive.getTracks().forEach(track => track.stop());
+        }
+
+        // =========================================================================
+        // 5. EKSEKUSI: PEREKAMAN & DIRECT UPLOAD (BYPASS LIMIT)
+        // =========================================================================
+        function executeCapture() {
+            const btn = document.getElementById('btn-capture');
+            
+            // JIKA MODE FOTO
+            if (currMediaType === "photo") {
+                const canvas = document.getElementById('cctv-canvas');
+                canvas.toBlob((blob) => {
+                    const fileName = `${currSN}_${Date.now()}.jpg`;
+                    processUploadSequence(blob, fileName, 'image/jpeg');
+                }, 'image/jpeg', 0.85); // Kualitas 85%
+            } 
+            // JIKA MODE VIDEO
+            else if (currMediaType === "video") {
+                if (!isRecording) {
+                    // Mulai Rekam
+                    const canvas = document.getElementById('cctv-canvas');
+                    const stream = canvas.captureStream(30); // 30 FPS dari canvas yg sdh diwatermark
+                    
+                    try {
+                        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                    } catch (e) {
+                        mediaRecorder = new MediaRecorder(stream); // Fallback format default browser
+                    }
+                    
+                    recordedChunks = [];
+                    mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+                        const ext = mediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
+                        const fileName = `${currSN}_${Date.now()}.${ext}`;
+                        processUploadSequence(blob, fileName, blob.type);
+                    };
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    // UI Rekam Berjalan
+                    btn.classList.replace('bg-gray-800', 'bg-red-600');
+                    btn.classList.replace('active:bg-gray-900', 'active:bg-red-700');
+                    document.getElementById('txt-capture').innerHTML = "⏹ BERHENTI & UPLOAD";
+                    document.getElementById('btn-cancel').disabled = true;
+                    document.getElementById('rec-indicator').classList.remove('hidden');
+                    
+                    recordTimer = 0;
+                    recordInterval = setInterval(()=>{
+                        recordTimer++;
+                        const m = String(Math.floor(recordTimer / 60)).padStart(2,'0');
+                        const s = String(recordTimer % 60).padStart(2,'0');
+                        document.getElementById('rec-timer').textContent = `${m}:${s}`;
+                    }, 1000);
+
+                } else {
+                    // Stop Rekam & Jalankan Upload
+                    isRecording = false;
+                    clearInterval(recordInterval);
+                    mediaRecorder.stop(); // Akan memicu onstop di atas
+                    
+                    // UI Reset Loading
+                    btn.classList.replace('bg-red-600', 'bg-gray-400');
+                    btn.disabled = true;
+                    document.getElementById('txt-capture').innerHTML = "MEMPROSES VIDEO...";
+                    document.getElementById('rec-indicator').classList.add('hidden');
+                }
+            }
+        }
+
+        // === SEQUENCE UPLOAD 3 TAHAP: Minta Tiket -> Direct PUT -> Lapor Form ===
+        async function processUploadSequence(blob, fileName, mimeType) {
+            const btn = document.getElementById('btn-capture');
+            const btnCancel = document.getElementById('btn-cancel');
+            
+            btn.disabled = true; btnCancel.disabled = true;
+            btn.classList.replace('bg-gray-800', 'bg-gray-400');
+            btn.classList.replace('active:bg-gray-900', 'active:bg-gray-400');
+            document.getElementById('txt-capture').innerHTML = "🔄 MEMINTA JALUR UPLOAD...";
+            setProgress(5);
+
+            try {
+                // TAHAP 1: Minta Tiket Resumable URL dari GAS
+                const payload1 = { action: 'getUploadUrl', fileName: fileName, mimeType: mimeType };
+                const res1 = await fetch(GAS_API_URL, {
+                    method: 'POST', body: JSON.stringify(payload1), headers: {'Content-Type': 'text/plain'} // bypass preflight
+                }).then(r => r.json());
+
+                if(!res1.success) throw new Error("Gagal dapat tiket: " + res1.message);
+                const uploadUrl = res1.uploadUrl;
+                
+                // TAHAP 2: DIRECT UPLOAD KE GOOGLE DRIVE (Via XMLHttpRequest agar ada Progress Bar)
+                document.getElementById('txt-capture').innerHTML = "⬆️ MENGUNGGAH FILE...";
+                const fileId = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open("PUT", uploadUrl, true);
+                    xhr.upload.onprogress = (e) => {
+                        if(e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 100);
+                            setProgress(pct);
+                            document.getElementById('txt-capture').innerHTML = `⬆️ MENGUNGGAH (${pct}%)`;
+                        }
+                    };
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            const resp = JSON.parse(xhr.responseText);
+                            resolve(resp.id); // Dapat File ID dari Drive API
+                        } else { reject("Drive Error: " + xhr.status); }
+                    };
+                    xhr.onerror = () => reject("Jaringan Terputus saat Upload");
+                    xhr.send(blob);
+                });
+
+                // TAHAP 3: KIRIM DATA FORM & FILE ID KE GAS
+                document.getElementById('txt-capture').innerHTML = "💾 MENYIMPAN KE DATABASE...";
+                
+                // Susun Payload Data Form
+                const now = new Date();
+                const timeStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
+                
+                const payloadForm = {
+                    action: 'submitStoData',
+                    data: {
+                        timestamp: timeStr,
+                        sn: currSN,
+                        jenisAsset: currJenis,
+                        fisikAsset: document.getElementById('inp-fisik').value,
+                        statusAsset: document.getElementById('inp-status').value,
+                        penggunaan: document.getElementById('inp-penggunaan').value,
+                        kondisi: document.getElementById('inp-kondisi').value,
+                        penyebabDamage: document.getElementById('inp-penyebab').value,
+                        mediaType: currMediaType,
+                        fileId: fileId
+                    }
+                };
+
+                const res3 = await fetch(GAS_API_URL, {
+                    method: 'POST', body: JSON.stringify(payloadForm), headers: {'Content-Type': 'text/plain'}
+                }).then(r => r.json());
+
+                if (res3.success) {
+                    showToast("✅ Berhasil: " + currSN);
+                    fetchInitialData(); // Refresh summary akordion
+                    cancelStudio(); // Tutup form, kembali ke scanner
+                } else { throw new Error(res3.message); }
+
+            } catch (error) {
+                showToast("❌ UPLOAD GAGAL: " + error.message);
+                // Kembalikan UI Tombol
+                btn.disabled = false; btnCancel.disabled = false;
+                btn.classList.replace('bg-gray-400', 'bg-gray-800');
+                btn.classList.replace('active:bg-gray-400', 'active:bg-gray-900');
+                document.getElementById('txt-capture').innerHTML = "COBA LAGI";
+            } finally {
+                setProgress(0);
+            }
+        }
+    </script>
+</body>
+</html>
