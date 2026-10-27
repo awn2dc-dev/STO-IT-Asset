@@ -59,12 +59,12 @@
 
         <!-- ================= 2. AKORDION SUMMARY ================= -->
         <div id="accordion-view" class="bg-gray-50 p-2 shrink-0 border-b border-gray-300 max-h-[25vh] overflow-y-auto custom-scrollbar">
-            <div class="text-center py-4 text-gray-400 text-xs font-medium animate-pulse">Mengunduh Master Data...</div>
-        </div>
-
-        <!-- ================= 3. SCANNER VIEW ================= -->
+        <!-- ================= 3. SCANNER VIEW (Mode Pencarian Barcode) ================= -->
         <div id="scanner-view">
-            <div id="reader"></div>
+            <div id="reader" class="w-full h-full"></div>
+            <!-- TAMBAHAN: Indikator kecil untuk debug pembacaan -->
+            <div class="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] px-2 py-1 rounded" id="debug-scan">Standby...</div>
+            
             <div class="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-10">
                 <div class="bg-black/70 backdrop-blur px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest shadow-lg border border-gray-600">SCAN BARCODE/QR</div>
             </div>
@@ -260,15 +260,32 @@
         function onScanSuccess(decodedText) {
             let sn = decodedText.trim();
             
-            // CEK DATABASE LOKAL: Abaikan senyap jika QR/Barcode bukan SN terdaftar
-            if (!masterDbCache[sn]) {
-                return; // Kamera tetap standby & scanning tanpa notifikasi penolakan
+            // DEBUG: Tampilkan apa yang baru saja terbaca kamera
+            document.getElementById('debug-scan').textContent = "Terbaca: " + sn;
+
+            // Pencarian Case-Insensitive (Abaikan huruf besar/kecil)
+            let foundJenis = null;
+            let realSN = sn;
+            for (let key in masterDbCache) {
+                if (key.toUpperCase() === sn.toUpperCase()) {
+                    foundJenis = masterDbCache[key];
+                    realSN = key;
+                    break;
+                }
             }
+            
+            // CEK DATABASE LOKAL: Abaikan senyap jika QR/Barcode bukan SN terdaftar
+            if (!foundJenis) {
+                return; 
+            }
+
+            // Jika valid, hentikan bacaan sementara agar tidak double-trigger
+            try { html5QrCode.pause(); } catch(e){}
 
             // Jika SN terdaftar & valid, kunci & jalankan Studio Form
             document.getElementById('chime').play().catch(()=>{});
-            currSN = sn;
-            currJenis = masterDbCache[sn];
+            currSN = realSN;
+            currJenis = foundJenis;
             
             const jLower = currJenis.toLowerCase();
             if (jLower.includes("laptop") || jLower.includes("smartphone") || jLower.includes("handphone")) {
@@ -277,28 +294,18 @@
                 currMediaType = "photo";
             }
 
-            openStudioForm();
-        }
-
-        function checkKondisi() {
-            const val = document.getElementById('inp-kondisi').value;
-            const box = document.getElementById('box-damage');
-            if (val === "Damaged") {
-                box.classList.remove('hidden'); box.classList.add('flex');
-            } else {
-                box.classList.add('hidden'); box.classList.remove('flex');
-                document.getElementById('inp-penyebab').value = "-";
-            }
-        }
-
-        // PERBAIKAN: Stop scanner secara total sebelum buka CCTV agar tidak crash
+        // PERBAIKAN: Stop scanner dengan JEDA AMAN untuk cegah tabrakan hardware Android
         function openStudioForm() {
-            if (html5QrCode && html5QrCode.isScanning) {
+            document.getElementById('scanner-view').classList.add('hidden');
+            document.getElementById('accordion-view').classList.add('hidden');
+
+            if (html5QrCode) {
                 html5QrCode.stop().then(() => {
-                    switchUiToStudio();
+                    // JEDA 500ms: Biarkan lensa HP istirahat sejenak sebelum nyala lagi
+                    setTimeout(() => switchUiToStudio(), 500);
                 }).catch(err => {
                     console.error("Gagal stop scanner", err);
-                    switchUiToStudio(); // Paksa pindah jika gagal stop
+                    setTimeout(() => switchUiToStudio(), 500);
                 });
             } else {
                 switchUiToStudio();
