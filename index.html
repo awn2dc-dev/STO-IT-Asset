@@ -47,7 +47,7 @@
         <!-- ================= 1. HEADER (TETAP) ================= -->
         <div class="bg-white border-b border-gray-300 shadow-sm shrink-0 z-20">
             <div class="p-3 flex justify-between items-center bg-gray-100">
-                <h1 class="text-lg font-bold tracking-tight text-gray-800">STO IT ASSET</h1>
+                <h1 class="text-lg font-bold tracking-tight text-gray-800">STO IT ASSET (DEBUG MODE)</h1>
                 <button onclick="fetchInitialData()" class="p-2 bg-white rounded border border-gray-300 shadow-sm active:bg-gray-200 text-xs font-bold text-gray-600 flex gap-1 items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Sinkron
                 </button>
@@ -62,14 +62,13 @@
             <div class="text-center py-4 text-gray-400 text-xs font-medium animate-pulse">Mengunduh Master Data...</div>
         </div>
 
-        <!-- ================= 3. SCANNER VIEW (Mode Pencarian Barcode) ================= -->
+        <!-- ================= 3. SCANNER VIEW ================= -->
         <div id="scanner-view">
             <div id="reader" class="w-full h-full"></div>
-            <!-- Indikator kecil untuk debug pembacaan -->
             <div class="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] px-2 py-1 rounded" id="debug-scan">Standby...</div>
             
             <div class="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-10">
-                <div class="bg-black/70 backdrop-blur px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest shadow-lg border border-gray-600">SCAN BARCODE/QR</div>
+                <div class="bg-black/70 backdrop-blur px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest shadow-lg border border-gray-600">SCAN APA SAJA (DEBUG)</div>
             </div>
         </div>
 
@@ -150,16 +149,12 @@
                         <option value="Manufacturing Defect">Manufacturing Defect (Pabrik)</option>
                         <option value="Operational Wear & Tear">Operational Wear & Tear (Usia)</option>
                     </select>
-                    <div class="flex items-start gap-1 text-[9px] text-gray-600 bg-gray-300/50 p-1.5 rounded border border-gray-300 leading-tight">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <span>Aset Damaged. Link IT Ticket wajib dilengkapi via Laptop/PC oleh Admin nanti.</span>
-                    </div>
                 </div>
             </div>
 
-            <div class="absolute bottom-0 left-0 right-0 bg-white p-3 border-t border-gray-300 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20 flex gap-2">
-                <button onclick="cancelStudio()" id="btn-cancel" class="bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded shadow-sm active:bg-gray-300 transition-colors text-sm">BATAL</button>
-                <button onclick="executeCapture()" id="btn-capture" class="flex-1 bg-gray-800 text-white font-bold py-3 rounded shadow-lg active:bg-gray-900 transition-all text-sm flex justify-center items-center gap-2">
+            <div class="absolute bottom-0 left-0 right-0 bg-white p-3 border-t border-gray-300 z-20 flex gap-2">
+                <button onclick="cancelStudio()" id="btn-cancel" class="bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded shadow-sm text-sm">BATAL</button>
+                <button onclick="executeCapture()" id="btn-capture" class="flex-1 bg-gray-800 text-white font-bold py-3 rounded shadow-lg text-sm flex justify-center items-center gap-2">
                     <span id="txt-capture">REKAM & UPLOAD</span>
                 </button>
             </div>
@@ -171,18 +166,14 @@
     <div id="toast-msg" class="toast">Notifikasi</div>
 
     <script>
-        // =========================================================================
-        // 🚨 CONFIGURASI UTAMA
-        // =========================================================================
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxP-nT3fjTL2dRPpK_XyF7kipz5WAPc2jbaCOYwGk0b_RFyr_H-Eupcvh-DtgYRsg9bdA/exec";
         
         let html5QrCode = null;
         let masterDbCache = {}; 
-        
         let currSN = "";
-        let currJenis = "";
+        let currJenis = "PDA"; // Default jenis untuk debug
         let currMediaType = "photo";
-        let locString = "Lokasi: Menunggu GPS...";
+        let locString = "Lokasi: Aktif";
         
         let streamActive = null;
         let cctvInterval = null;
@@ -205,30 +196,20 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    pos => { locString = `Lat: ${pos.coords.latitude.toFixed(5)}, Lon: ${pos.coords.longitude.toFixed(5)}`; },
-                    err => { locString = "Lokasi: GPS Ditolak/Gagal"; }
-                );
-            }
             fetchInitialData();
             initScanner();
         });
 
         function fetchInitialData() {
-            setProgress(30);
             fetch(GAS_API_URL + "?action=getInitialData")
                 .then(res => res.json())
                 .then(res => {
                     if (res.success) {
                         masterDbCache = res.masterDb;
                         renderAccordion(res.summary);
-                        setProgress(100);
-                        setTimeout(()=>setProgress(0), 1000);
-                        showToast("Sistem Siap (Data Tersinkron)");
-                    } else { showToast("Gagal Sinkronisasi Master", true); }
-                })
-                .catch(err => { showToast("API Tidak Terjangkau!", true); });
+                        showToast("Sistem Siap");
+                    }
+                }).catch(e=>{});
         }
 
         function renderAccordion(summaryObj) {
@@ -237,79 +218,54 @@
             for (const [jenis, data] of Object.entries(summaryObj)) {
                 let div = document.createElement('div');
                 div.className = "bg-white mb-1.5 p-2 rounded shadow-sm border border-gray-200 flex justify-between items-center text-sm";
-                div.innerHTML = `
-                    <span class="font-bold text-gray-700">${jenis}</span>
-                    <span class="bg-gray-100 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-gray-600 border border-gray-300">${data.done} / ${data.total}</span>
-                `;
+                div.innerHTML = `<span class="font-bold text-gray-700">${jenis}</span><span class="bg-gray-100 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-gray-600 border">${data.done} / ${data.total}</span>`;
                 container.appendChild(div);
             }
         }
 
         function initScanner() {
             html5QrCode = new Html5Qrcode("reader");
-            const config = { 
-                fps: 15, 
-                qrbox: { width: 280, height: 120 },
-                aspectRatio: 1.0,
-                formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.QR_CODE ]
-            };
-            
-            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
-            .catch(err => {
-                showToast("Kamera gagal diakses.", true);
-            });
+            const config = { fps: 15, qrbox: { width: 280, height: 120 } };
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(e => showToast("Kamera Gagal", true));
         }
 
         // ==========================================
-        // PERBAIKAN LOGIKA SCAN (Hapus Pause!)
+        // LOGIKA PAKSA BUKA (BYPASS VALIDASI DATABASE)
         // ==========================================
         function onScanSuccess(decodedText) {
-            let sn = decodedText.trim();
-            
-            document.getElementById('debug-scan').textContent = "Terbaca: " + sn;
+            let scannedValue = decodedText.trim();
+            document.getElementById('debug-scan').textContent = "Terbaca: " + scannedValue;
 
-            let foundJenis = null;
-            let realSN = sn;
+            // Cek apakah ada di database untuk ambil jenis aslinya, kalau tidak ada, pakai "PDA"
+            let jenisAsset = "PDA";
             for (let key in masterDbCache) {
-                if (key.toUpperCase() === sn.toUpperCase()) {
-                    foundJenis = masterDbCache[key];
-                    realSN = key;
+                if (key.toUpperCase() === scannedValue.toUpperCase()) {
+                    jenisAsset = masterDbCache[key];
+                    scannedValue = key; // Ambil aslinya
                     break;
                 }
             }
-            
-            // JIKA BUKAN SN, DIAM SAJA TERUS SCANNING
-            if (!foundJenis) {
-                return; 
-            }
 
-            // JIKA SN KETEMU: Langsung eksekusi tanpa pause
+            // Langsung eksekusi suara dan buka form!
             document.getElementById('chime').play().catch(()=>{});
-            currSN = realSN;
-            currJenis = foundJenis;
+            currSN = scannedValue;
+            currJenis = jenisAsset;
             
             const jLower = currJenis.toLowerCase();
-            if (jLower.includes("laptop") || jLower.includes("smartphone") || jLower.includes("handphone")) {
-                currMediaType = "video";
-            } else {
-                currMediaType = "photo";
-            }
+            currMediaType = (jLower.includes("laptop") || jLower.includes("smartphone") || jLower.includes("handphone")) ? "video" : "photo";
 
             openStudioForm();
         }
 
-        // Fungsi stop murni tanpa jeda setengah matang
         function openStudioForm() {
             document.getElementById('scanner-view').classList.add('hidden');
             document.getElementById('accordion-view').classList.add('hidden');
 
             if (html5QrCode) {
                 html5QrCode.stop().then(() => {
-                    // Beri jeda 500ms agar lensa kamera HP benar-benar ter-lepas (bebas)
-                    setTimeout(() => switchUiToStudio(), 500);
+                    setTimeout(() => switchUiToStudio(), 300);
                 }).catch(err => {
-                    console.error("Gagal stop scanner", err);
-                    setTimeout(() => switchUiToStudio(), 500);
+                    setTimeout(() => switchUiToStudio(), 300);
                 });
             } else {
                 switchUiToStudio();
@@ -319,12 +275,8 @@
         function checkKondisi() {
             const val = document.getElementById('inp-kondisi').value;
             const box = document.getElementById('box-damage');
-            if (val === "Damaged") {
-                box.classList.remove('hidden'); box.classList.add('flex');
-            } else {
-                box.classList.add('hidden'); box.classList.remove('flex');
-                document.getElementById('inp-penyebab').value = "-";
-            }
+            if (val === "Damaged") { box.classList.remove('hidden'); box.classList.add('flex'); } 
+            else { box.classList.add('hidden'); box.classList.remove('flex'); }
         }
 
         function switchUiToStudio() {
@@ -333,12 +285,6 @@
 
             document.getElementById('form-sn').textContent = currSN;
             document.getElementById('form-jenis').textContent = currJenis;
-            document.getElementById('inp-fisik').value = "Fisik Asset Ada";
-            document.getElementById('inp-kondisi').value = "Good";
-            document.getElementById('inp-penggunaan').value = "Daily Ops";
-            document.getElementById('inp-status').value = "Good";
-            checkKondisi();
-
             document.getElementById('txt-capture').textContent = currMediaType === "video" ? "MULAI REKAM VIDEO" : "JEPRET FOTO & UPLOAD";
             
             startCctvStream();
@@ -350,7 +296,6 @@
             document.getElementById('studio-view').classList.remove('flex');
             document.getElementById('accordion-view').classList.remove('hidden');
             document.getElementById('scanner-view').classList.remove('hidden');
-            
             initScanner();
         }
 
@@ -360,36 +305,21 @@
             const ctx = canvas.getContext('2d');
 
             try {
-                streamActive = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, 
-                    audio: false
-                });
+                streamActive = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
                 video.srcObject = streamActive;
-                
                 video.onplay = () => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
-                    
                     cctvInterval = setInterval(() => {
                         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        
                         ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; 
-                        ctx.fillRect(10, canvas.height - 70, canvas.width - 20, 60); 
-                        
+                        ctx.fillRect(10, canvas.height - 50, canvas.width - 20, 40); 
                         ctx.fillStyle = "white";
-                        ctx.font = "bold 16px monospace";
-                        ctx.fillText(`SN: ${currSN} | Tipe: ${currJenis}`, 15, canvas.height - 45);
-                        
-                        const now = new Date();
-                        const timeStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
-                        ctx.font = "12px monospace";
-                        ctx.fillText(`${timeStr} | ${locString}`, 15, canvas.height - 22);
-                        
-                    }, 1000 / 30); 
+                        ctx.font = "bold 14px monospace";
+                        ctx.fillText(`SN: ${currSN} | Tipe: ${currJenis}`, 15, canvas.height - 25);
+                    }, 30); 
                 };
-            } catch (err) {
-                showToast("Gagal akses kamera Canvas.", true);
-            }
+            } catch (err) { showToast("Gagal akses kamera Canvas.", true); }
         }
 
         function stopCctvStream() {
@@ -399,19 +329,15 @@
 
         function executeCapture() {
             const btn = document.getElementById('btn-capture');
-            
             if (currMediaType === "photo") {
                 const canvas = document.getElementById('cctv-canvas');
                 canvas.toBlob((blob) => {
-                    const fileName = `${currSN}_${Date.now()}.jpg`;
-                    processUploadSequence(blob, fileName, 'image/jpeg');
+                    processUploadSequence(blob, `${currSN}_${Date.now()}.jpg`, 'image/jpeg');
                 }, 'image/jpeg', 0.85); 
-            } 
-            else if (currMediaType === "video") {
+            } else if (currMediaType === "video") {
                 if (!isRecording) {
                     const canvas = document.getElementById('cctv-canvas');
                     const stream = canvas.captureStream(30); 
-                    
                     try { mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); } 
                     catch (e) { mediaRecorder = new MediaRecorder(stream); }
                     
@@ -419,121 +345,66 @@
                     mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
                     mediaRecorder.onstop = () => {
                         const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
-                        const ext = mediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
-                        const fileName = `${currSN}_${Date.now()}.${ext}`;
-                        processUploadSequence(blob, fileName, blob.type);
+                        processUploadSequence(blob, `${currSN}_${Date.now()}.webm`, blob.type);
                     };
-                    
                     mediaRecorder.start();
                     isRecording = true;
-                    
-                    btn.classList.replace('bg-gray-800', 'bg-red-600');
-                    btn.classList.replace('active:bg-gray-900', 'active:bg-red-700');
+                    btn.className = "flex-1 bg-red-600 text-white font-bold py-3 rounded shadow-lg text-sm flex justify-center items-center gap-2";
                     document.getElementById('txt-capture').innerHTML = "⏹ BERHENTI & UPLOAD";
-                    document.getElementById('btn-cancel').disabled = true;
-                    document.getElementById('rec-indicator').classList.remove('hidden');
-                    
-                    recordTimer = 0;
-                    recordInterval = setInterval(()=>{
-                        recordTimer++;
-                        const m = String(Math.floor(recordTimer / 60)).padStart(2,'0');
-                        const s = String(recordTimer % 60).padStart(2,'0');
-                        document.getElementById('rec-timer').textContent = `${m}:${s}`;
-                    }, 1000);
-
                 } else {
                     isRecording = false;
-                    clearInterval(recordInterval);
                     mediaRecorder.stop(); 
-                    
-                    btn.classList.replace('bg-red-600', 'bg-gray-400');
                     btn.disabled = true;
                     document.getElementById('txt-capture').innerHTML = "MEMPROSES VIDEO...";
-                    document.getElementById('rec-indicator').classList.add('hidden');
                 }
             }
         }
 
         async function processUploadSequence(blob, fileName, mimeType) {
             const btn = document.getElementById('btn-capture');
-            const btnCancel = document.getElementById('btn-cancel');
-            
-            btn.disabled = true; btnCancel.disabled = true;
-            btn.classList.replace('bg-gray-800', 'bg-gray-400');
-            btn.classList.replace('active:bg-gray-900', 'active:bg-gray-400');
-            document.getElementById('txt-capture').innerHTML = "🔄 MEMINTA JALUR UPLOAD...";
-            setProgress(5);
+            btn.innerHTML = "🔄 MENGIRIM...";
+            setProgress(20);
 
             try {
-                const payload1 = { action: 'getUploadUrl', fileName: fileName, mimeType: mimeType };
                 const res1 = await fetch(GAS_API_URL, {
-                    method: 'POST', body: JSON.stringify(payload1), headers: {'Content-Type': 'text/plain'} 
+                    method: 'POST', body: JSON.stringify({ action: 'getUploadUrl', fileName: fileName, mimeType: mimeType }), headers: {'Content-Type': 'text/plain'} 
                 }).then(r => r.json());
 
-                if(!res1.success) throw new Error("Gagal dapat tiket: " + res1.message);
-                const uploadUrl = res1.uploadUrl;
+                if(!res1.success) throw new Error(res1.message);
                 
-                document.getElementById('txt-capture').innerHTML = "⬆️ MENGUNGGAH FILE...";
                 const fileId = await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
-                    xhr.open("PUT", uploadUrl, true);
-                    xhr.upload.onprogress = (e) => {
-                        if(e.lengthComputable) {
-                            const pct = Math.round((e.loaded / e.total) * 100);
-                            setProgress(pct);
-                            document.getElementById('txt-capture').innerHTML = `⬆️ MENGUNGGAH (${pct}%)`;
-                        }
-                    };
-                    xhr.onload = () => {
-                        if (xhr.status >= 200 && xhr.status < 300) {
-                            const resp = JSON.parse(xhr.responseText);
-                            resolve(resp.id); 
-                        } else { reject("Drive Error: " + xhr.status); }
-                    };
-                    xhr.onerror = () => reject("Jaringan Terputus saat Upload");
+                    xhr.open("PUT", res1.uploadUrl, true);
+                    xhr.upload.onprogress = (e) => { if(e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
+                    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).id); else reject("Error Drive"); };
                     xhr.send(blob);
                 });
 
-                document.getElementById('txt-capture').innerHTML = "💾 MENYIMPAN KE DATABASE...";
-                
                 const now = new Date();
                 const timeStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0') + " " + String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0') + ":" + String(now.getSeconds()).padStart(2,'0');
                 
-                const payloadForm = {
-                    action: 'submitStoData',
-                    data: {
-                        timestamp: timeStr,
-                        sn: currSN,
-                        jenisAsset: currJenis,
-                        fisikAsset: document.getElementById('inp-fisik').value,
-                        statusAsset: document.getElementById('inp-status').value,
-                        penggunaan: document.getElementById('inp-penggunaan').value,
-                        kondisi: document.getElementById('inp-kondisi').value,
-                        penyebabDamage: document.getElementById('inp-penyebab').value,
-                        mediaType: currMediaType,
-                        fileId: fileId
-                    }
-                };
-
-                const res3 = await fetch(GAS_API_URL, {
-                    method: 'POST', body: JSON.stringify(payloadForm), headers: {'Content-Type': 'text/plain'}
+                await fetch(GAS_API_URL, {
+                    method: 'POST', body: JSON.stringify({
+                        action: 'submitStoData',
+                        data: {
+                            timestamp: timeStr, sn: currSN, jenisAsset: currJenis,
+                            fisikAsset: document.getElementById('inp-fisik').value,
+                            statusAsset: document.getElementById('inp-status').value,
+                            penggunaan: document.getElementById('inp-penggunaan').value,
+                            kondisi: document.getElementById('inp-kondisi').value,
+                            penyebabDamage: document.getElementById('inp-penyebab').value,
+                            mediaType: currMediaType, fileId: fileId
+                        }
+                    }), headers: {'Content-Type': 'text/plain'}
                 }).then(r => r.json());
 
-                if (res3.success) {
-                    showToast("✅ Berhasil: " + currSN);
-                    fetchInitialData(); 
-                    cancelStudio(); // Ini akan menutup form dan me-restart scanner
-                } else { throw new Error(res3.message); }
-
-            } catch (error) {
-                showToast("❌ UPLOAD GAGAL: " + error.message, true);
-                btn.disabled = false; btnCancel.disabled = false;
-                btn.classList.replace('bg-gray-400', 'bg-gray-800');
-                btn.classList.replace('active:bg-gray-400', 'active:bg-gray-900');
-                document.getElementById('txt-capture').innerHTML = "COBA LAGI";
-            } finally {
-                setProgress(0);
-            }
+                showToast("✅ Berhasil Disimpan!");
+                cancelStudio();
+            } catch (err) {
+                showToast("❌ Gagal: " + err.message, true);
+                btn.disabled = false;
+                btn.innerHTML = "COBA LAGI";
+            } finally { setProgress(0); }
         }
     </script>
 </body>
