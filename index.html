@@ -1,373 +1,407 @@
-<div id="app-container">
-    <div class="bg-white border-b border-gray-300 shadow-sm shrink-0 z-20">
-        <div class="p-3 flex justify-between items-center bg-gray-100">
-            <h1 class="text-lg font-bold tracking-tight text-gray-800">STO IT ASSET</h1>
-            <button onclick="fetchInitialData()" class="p-2 bg-white rounded border text-xs font-bold text-gray-600">Sinkron</button>
-        </div>
-        <div class="w-full h-1 bg-gray-200"><div id="progress-bar" class="h-full bg-gray-800" style="width: 0%;"></div></div>
-    </div>
-
-    <div id="accordion-view" class="bg-gray-50 p-2 shrink-0 border-b max-h-[25vh] overflow-y-auto custom-scrollbar">
-        <div class="text-center py-4 text-gray-400 text-xs font-medium">Mengunduh Master Data...</div>
-    </div>
-
-    <!-- SCANNER VIEW -->
-    <div id="scanner-view">
-        <video id="camera-feed" autoplay playsinline muted></video>
-        <canvas id="hidden-canvas" class="hidden"></canvas>
-        <div class="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] px-2 py-1 rounded" id="debug-scan">Mencari Barcode...</div>
-        <div class="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-10">
-            <div class="bg-black/70 px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest border border-gray-600">ARAHKAN KE BARCODE</div>
-        </div>
-    </div>
-
-    <!-- STUDIO FORM VIEW -->
-    <div id="studio-view" class="hidden bg-gray-100 flex-1 flex-col h-full relative">
-        <div class="relative w-full h-[40vh] bg-black shrink-0 overflow-hidden border-b-4 border-gray-800">
-            <video id="raw-video" class="hidden" autoplay playsinline muted></video>
-            <canvas id="cctv-canvas"></canvas>
-            <div id="rec-indicator" class="absolute top-3 right-3 flex items-center gap-1 hidden">
-                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                <span class="text-white text-xs font-bold font-mono tracking-widest bg-black/50 px-1 rounded" id="rec-timer">00:00</span>
-            </div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 bg-gray-50 relative pb-20">
-            <div class="bg-white p-3 rounded border flex flex-col gap-1">
-                <span class="text-[10px] text-gray-500 font-bold uppercase">SN Asset</span>
-                <span id="form-sn" class="font-mono font-bold text-gray-800 text-sm">-</span>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase">Fisik Asset</label>
-                    <select id="inp-fisik" class="w-full bg-white border p-2 text-xs rounded font-semibold">
-                        <option value="Fisik Asset Ada">Fisik Ada</option>
-                        <option value="Fisik Asset Tidak Ada">Tidak Ada</option>
-                        <option value="SN Tidak Diketahui">SN Unknown</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase">Kondisi</label>
-                    <select id="inp-kondisi" onchange="checkKondisi()" class="w-full bg-white border p-2 text-xs rounded font-semibold">
-                        <option value="Good">Good</option>
-                        <option value="Damaged">Damaged</option>
-                    </select>
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase">Penggunaan</label>
-                    <select id="inp-penggunaan" class="w-full bg-white border p-2 text-xs rounded font-semibold">
-                        <option value="Daily Ops">Daily Ops</option>
-                        <option value="Cache">Cache</option>
-                        <option value="EHA">EHA</option>
-                        <option value="DKM">DKM</option>
-                        <option value="ESB">ESB</option>
-                        <option value="Seller">Seller</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] font-bold text-gray-500 uppercase">Status Asset</label>
-                    <select id="inp-status" class="w-full bg-white border p-2 text-xs rounded font-semibold">
-                        <option value="Good">Good</option>
-                        <option value="Return">Return</option>
-                        <option value="Repair">Repair</option>
-                        <option value="Damaged">Damaged</option>
-                        <option value="Lost">Lost</option>
-                    </select>
-                </div>
-            </div>
-            <div id="box-damage" class="hidden flex-col gap-1 bg-orange-50 p-3 rounded border border-orange-200">
-                <label class="text-[10px] font-bold text-orange-800 uppercase">Penyebab Damaged</label>
-                <select id="inp-penyebab" class="w-full bg-white border border-orange-300 p-2 text-xs rounded">
-                    <option value="-">Pilih Penyebab...</option>
-                    <option value="Mishandling (Kelalaian)">Mishandling (Kelalaian)</option>
-                    <option value="Force Majeure (Bencana)">Force Majeure (Bencana)</option>
-                    <option value="Electrical Issue">Electrical Issue</option>
-                    <option value="Manufacturing Defect">Manufacturing Defect</option>
-                    <option value="Operational Wear & Tear">Wear & Tear</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="absolute bottom-0 left-0 right-0 bg-white p-3 border-t z-20 flex gap-2">
-            <button onclick="cancelStudio()" id="btn-cancel" class="bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded text-sm">BATAL</button>
-            <button onclick="executeCapture()" id="btn-capture" class="flex-1 bg-gray-800 text-white font-bold py-3 rounded text-sm flex justify-center items-center">
-                <span id="txt-capture">REKAM & UPLOAD</span>
-            </button>
-        </div>
-    </div>
-</div>
-<div id="toast-msg" class="toast">Notifikasi</div>
-
-<script>
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxP-nT3fjTL2dRPpK_XyF7kipz5WAPc2jbaCOYwGk0b_RFyr_H-Eupcvh-DtgYRsg9bdA/exec";
-    let masterDbCache = {}; 
-    let currSN = "";
-    let currJenis = "PDA";
-    let currMediaType = "photo";
-    let locString = "Lokasi: Memuat GPS...";
-    
-    let streamActive = null;
-    let scanInterval = null;
-    let cctvInterval = null;
-    let isRecording = false;
-    let mediaRecorder;
-    let recordedChunks = [];
-    let recordTimer = 0;
-    let recordInterval;
-
-    function showToast(msg, isError = false) {
-        const t = document.getElementById('toast-msg');
-        t.textContent = msg;
-        if (isError) t.classList.add('error'); else t.classList.remove('error');
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 3500);
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                pos => { locString = `Lat: ${pos.coords.latitude.toFixed(5)}, Lon: ${pos.coords.longitude.toFixed(5)}`; },
-                err => { locString = "GPS Ditolak"; }
-            );
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart STO Kiosk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { gray: { 850: '#1f2937', 900: '#111827', 950: '#0b0f19' } } } }
         }
-        fetchInitialData();
-        startNativeScanner();
-    });
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #f3f4f6; color: #111827; margin: 0; padding: 0; height: 100vh; width: 100vw; }
+        #app-container { display: flex; flex-direction: column; height: 100%; width: 100%; max-width: 600px; margin: 0 auto; background: white; box-shadow: 0 0 15px rgba(0,0,0,0.1); position: relative; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
+        #scanner-view { width: 100%; flex: 1; background-color: #000; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; }
+        #camera-feed { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+        #studio-view { width: 100%; flex: 1; background-color: #000; position: relative; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+        #cctv-canvas { width: 100%; height: 100%; object-fit: cover; }
+        .toast { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); background-color: #1f2937; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; text-align: center; }
+        .toast.show { opacity: 1; }
+        .toast.error { background-color: #ef4444; }
+    </style>
+</head>
+<body>
 
-    function fetchInitialData() {
-        fetch(GAS_API_URL + "?action=getInitialData")
-            .then(res => res.json())
-            .then(res => {
-                if (res.success) {
-                    masterDbCache = res.masterDb;
-                    renderAccordion(res.summary);
-                    showToast("Sistem Siap");
-                }
-            }).catch(e=>{});
-    }
+    <div id="app-container">
+        <!-- HEADER -->
+        <div class="bg-white border-b border-gray-300 shadow-sm shrink-0 z-20">
+            <div class="p-3 flex justify-between items-center bg-gray-100">
+                <h1 class="text-lg font-bold tracking-tight text-gray-800">STO IT ASSET</h1>
+                <button onclick="fetchInitialData()" class="p-2 bg-white rounded border text-xs font-bold text-gray-600">Sinkron</button>
+            </div>
+            <div class="w-full h-1 bg-gray-200"><div id="progress-bar" class="h-full bg-gray-800" style="width: 0%;"></div></div>
+        </div>
 
-    function renderAccordion(summaryObj) {
-        const container = document.getElementById('accordion-view');
-        container.innerHTML = "";
-        for (const [jenis, data] of Object.entries(summaryObj)) {
-            let div = document.createElement('div');
-            div.className = "bg-white mb-1.5 p-2 rounded shadow-sm border flex justify-between items-center text-xs";
-            div.innerHTML = `<span class="font-bold text-gray-700">${jenis}</span><span class="bg-gray-100 px-2 py-0.5 rounded font-mono font-bold">${data.done} / ${data.total}</span>`;
-            container.appendChild(div);
+        <!-- AKORDION -->
+        <div id="accordion-view" class="bg-gray-50 p-2 shrink-0 border-b max-h-[25vh] overflow-y-auto custom-scrollbar">
+            <div class="text-center py-4 text-gray-400 text-xs font-medium">Mengunduh Master Data...</div>
+        </div>
+
+        <!-- SCANNER VIEW -->
+        <div id="scanner-view">
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <canvas id="hidden-canvas" class="hidden"></canvas>
+            <div class="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] px-2 py-1 rounded" id="debug-scan">Mencari Barcode...</div>
+            <div class="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-10">
+                <div class="bg-black/70 px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest border border-gray-600">ARAHKAN KE BARCODE</div>
+            </div>
+        </div>
+
+        <!-- STUDIO FORM VIEW -->
+        <div id="studio-view" class="hidden bg-gray-100 flex-1 flex-col h-full relative">
+            <div class="relative w-full h-[40vh] bg-black shrink-0 overflow-hidden border-b-4 border-gray-800">
+                <video id="raw-video" class="hidden" autoplay playsinline muted></video>
+                <canvas id="cctv-canvas"></canvas>
+                <div id="rec-indicator" class="absolute top-3 right-3 flex items-center gap-1 hidden">
+                    <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    <span class="text-white text-xs font-bold font-mono tracking-widest bg-black/50 px-1 rounded" id="rec-timer">00:00</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 bg-gray-50 relative pb-20">
+                <div class="bg-white p-3 rounded border flex flex-col gap-1">
+                    <span class="text-[10px] text-gray-500 font-bold uppercase">SN Asset</span>
+                    <span id="form-sn" class="font-mono font-bold text-gray-800 text-sm">-</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Fisik Asset</label>
+                        <select id="inp-fisik" class="w-full bg-white border p-2 text-xs rounded font-semibold">
+                            <option value="Fisik Asset Ada">Fisik Ada</option>
+                            <option value="Fisik Asset Tidak Ada">Tidak Ada</option>
+                            <option value="SN Tidak Diketahui">SN Unknown</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Kondisi</label>
+                        <select id="inp-kondisi" onchange="checkKondisi()" class="w-full bg-white border p-2 text-xs rounded font-semibold">
+                            <option value="Good">Good</option>
+                            <option value="Damaged">Damaged</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Penggunaan</label>
+                        <select id="inp-penggunaan" class="w-full bg-white border p-2 text-xs rounded font-semibold">
+                            <option value="Daily Ops">Daily Ops</option>
+                            <option value="Cache">Cache</option>
+                            <option value="EHA">EHA</option>
+                            <option value="DKM">DKM</option>
+                            <option value="ESB">ESB</option>
+                            <option value="Seller">Seller</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-500 uppercase">Status Asset</label>
+                        <select id="inp-status" class="w-full bg-white border p-2 text-xs rounded font-semibold">
+                            <option value="Good">Good</option>
+                            <option value="Return">Return</option>
+                            <option value="Repair">Repair</option>
+                            <option value="Damaged">Damaged</option>
+                            <option value="Lost">Lost</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="box-damage" class="hidden flex-col gap-1 bg-orange-50 p-3 rounded border border-orange-200">
+                    <label class="text-[10px] font-bold text-orange-800 uppercase">Penyebab Damaged</label>
+                    <select id="inp-penyebab" class="w-full bg-white border border-orange-300 p-2 text-xs rounded">
+                        <option value="-">Pilih Penyebab...</option>
+                        <option value="Mishandling (Kelalaian)">Mishandling (Kelalaian)</option>
+                        <option value="Force Majeure (Bencana)">Force Majeure (Bencana)</option>
+                        <option value="Electrical Issue">Electrical Issue</option>
+                        <option value="Manufacturing Defect">Manufacturing Defect</option>
+                        <option value="Operational Wear & Tear">Wear & Tear</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="absolute bottom-0 left-0 right-0 bg-white p-3 border-t z-20 flex gap-2">
+                <button onclick="cancelStudio()" id="btn-cancel" class="bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded text-sm">BATAL</button>
+                <button onclick="executeCapture()" id="btn-capture" class="flex-1 bg-gray-800 text-white font-bold py-3 rounded text-sm flex justify-center items-center">
+                    <span id="txt-capture">REKAM & UPLOAD</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="toast-msg" class="toast">Notifikasi</div>
+
+    <script>
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxP-nT3fjTL2dRPpK_XyF7kipz5WAPc2jbaCOYwGk0b_RFyr_H-Eupcvh-DtgYRsg9bdA/exec";
+        let masterDbCache = {}; 
+        let currSN = "";
+        let currJenis = "PDA";
+        let currMediaType = "photo";
+        let locString = "Lokasi: Memuat GPS...";
+        
+        let streamActive = null;
+        let scanInterval = null;
+        let cctvInterval = null;
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let recordTimer = 0;
+        let recordInterval;
+
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast-msg');
+            t.textContent = msg;
+            if (isError) t.classList.add('error'); else t.classList.remove('error');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3500);
         }
-    }
 
-    async function startNativeScanner() {
-        const video = document.getElementById('camera-feed');
-        const canvas = document.getElementById('hidden-canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-        try {
-            streamActive = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                audio: false 
-            });
-            video.srcObject = streamActive;
-            await video.play();
-
-            let barcodeDetector = null;
-            if ('BarcodeDetector' in window) {
-                try {
-                    barcodeDetector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'qr_code', 'data_matrix'] });
-                } catch (e) {}
+        document.addEventListener("DOMContentLoaded", () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => { locString = `Lat: ${pos.coords.latitude.toFixed(5)}, Lon: ${pos.coords.longitude.toFixed(5)}`; },
+                    err => { locString = "GPS Ditolak"; }
+                );
             }
+            fetchInitialData();
+            startNativeScanner();
+        });
 
-            scanInterval = setInterval(async () => {
-                if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-                
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        function fetchInitialData() {
+            fetch(GAS_API_URL + "?action=getInitialData")
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        masterDbCache = res.masterDb;
+                        renderAccordion(res.summary);
+                        showToast("Sistem Siap");
+                    }
+                }).catch(e=>{});
+        }
 
-                let detectedText = null;
-                if (barcodeDetector) {
+        function renderAccordion(summaryObj) {
+            const container = document.getElementById('accordion-view');
+            container.innerHTML = "";
+            for (const [jenis, data] of Object.entries(summaryObj)) {
+                let div = document.createElement('div');
+                div.className = "bg-white mb-1.5 p-2 rounded shadow-sm border flex justify-between items-center text-xs";
+                div.innerHTML = `<span class="font-bold text-gray-700">${jenis}</span><span class="bg-gray-100 px-2 py-0.5 rounded font-mono font-bold">${data.done} / ${data.total}</span>`;
+                container.appendChild(div);
+            }
+        }
+
+        async function startNativeScanner() {
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('hidden-canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            try {
+                streamActive = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    audio: false 
+                });
+                video.srcObject = streamActive;
+                await video.play();
+
+                let barcodeDetector = null;
+                if ('BarcodeDetector' in window) {
                     try {
-                        const barcodes = await barcodeDetector.detect(canvas);
-                        if (barcodes.length > 0) detectedText = barcodes[0].rawValue;
+                        barcodeDetector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'qr_code', 'data_matrix'] });
                     } catch (e) {}
                 }
 
-                if (detectedText) {
-                    document.getElementById('debug-scan').textContent = "Terbaca: " + detectedText;
-                    handleScannedCode(detectedText);
-                }
-            }, 250);
-
-        } catch (err) {
-            showToast("Gagal akses kamera", true);
-        }
-    }
-
-    function handleScannedCode(scannedValue) {
-        let sn = scannedValue.trim();
-        let foundJenis = null;
-        let realSN = sn;
-
-        for (let key in masterDbCache) {
-            if (key.toUpperCase() === sn.toUpperCase()) {
-                foundJenis = masterDbCache[key];
-                realSN = key;
-                break;
-            }
-        }
-
-        // Jika tidak ada di DB, abaikan senyap
-        if (!foundJenis) return;
-
-        if (scanInterval) clearInterval(scanInterval);
-        if (streamActive) streamActive.getTracks().forEach(t => t.stop());
-
-        currSN = realSN;
-        currJenis = foundJenis;
-        currMediaType = (currJenis.toLowerCase().includes("laptop") || currJenis.toLowerCase().includes("smartphone")) ? "video" : "photo";
-        
-        document.getElementById('scanner-view').classList.add('hidden');
-        document.getElementById('accordion-view').classList.add('hidden');
-        document.getElementById('studio-view').classList.remove('hidden');
-        document.getElementById('studio-view').classList.add('flex');
-
-        document.getElementById('form-sn').textContent = currSN;
-        document.getElementById('txt-capture').textContent = currMediaType === "video" ? "MULAI REKAM VIDEO" : "JEPRET FOTO & UPLOAD";
-
-        startCctvStream();
-    }
-
-    function cancelStudio() {
-        if (cctvInterval) clearInterval(cctvInterval);
-        if (streamActive) streamActive.getTracks().forEach(t => t.stop());
-
-        document.getElementById('studio-view').classList.add('hidden');
-        document.getElementById('studio-view').classList.remove('flex');
-        document.getElementById('accordion-view').classList.remove('hidden');
-        document.getElementById('scanner-view').classList.remove('hidden');
-        startNativeScanner();
-    }
-
-    function checkKondisi() {
-        const val = document.getElementById('inp-kondisi').value;
-        const box = document.getElementById('box-damage');
-        if (val === "Damaged") { box.classList.remove('hidden'); box.classList.add('flex'); }
-        else { box.classList.add('hidden'); box.classList.remove('flex'); }
-    }
-
-    async function startCctvStream() {
-        const video = document.getElementById('raw-video');
-        const canvas = document.getElementById('cctv-canvas');
-        const ctx = canvas.getContext('2d');
-
-        try {
-            streamActive = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, 
-                audio: false
-            });
-            video.srcObject = streamActive;
-            video.onplay = () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                
-                cctvInterval = setInterval(() => {
+                scanInterval = setInterval(async () => {
+                    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+                    
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; 
-                    ctx.fillRect(10, canvas.height - 65, canvas.width - 20, 55); 
-                    
-                    ctx.fillStyle = "white";
-                    ctx.font = "bold 14px monospace";
-                    ctx.fillText(`SN: ${currSN} | ${currJenis}`, 15, canvas.height - 40);
-                    
-                    const now = new Date();
-                    const timeStr = now.toISOString().slice(0,19).replace('T',' ');
-                    ctx.font = "11px monospace";
-                    ctx.fillText(`${timeStr} | ${locString}`, 15, canvas.height - 20);
-                }, 1000 / 30); 
-            };
-        } catch (err) {}
-    }
 
-    function executeCapture() {
-        const btn = document.getElementById('btn-capture');
-        if (currMediaType === "photo") {
-            const canvas = document.getElementById('cctv-canvas');
-            canvas.toBlob((blob) => {
-                processUploadSequence(blob, `${currSN}_${Date.now()}.jpg`, 'image/jpeg');
-            }, 'image/jpeg', 0.85);
-        } else {
-            if (!isRecording) {
-                const canvas = document.getElementById('cctv-canvas');
-                const stream = canvas.captureStream(30);
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                recordedChunks = [];
-                mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
-                    processUploadSequence(blob, `${currSN}_${Date.now()}.webm`, blob.type);
-                };
-                mediaRecorder.start();
-                isRecording = true;
-                btn.classList.replace('bg-gray-800', 'bg-red-600');
-                document.getElementById('txt-capture').textContent = "STOP & UPLOAD";
-                document.getElementById('btn-cancel').disabled = true;
-            } else {
-                isRecording = false;
-                mediaRecorder.stop();
-                btn.classList.replace('bg-red-600', 'bg-gray-400');
-                btn.disabled = true;
-                document.getElementById('txt-capture').textContent = "MENGUNGGAH...";
+                    let detectedText = null;
+                    if (barcodeDetector) {
+                        try {
+                            const barcodes = await barcodeDetector.detect(canvas);
+                            if (barcodes.length > 0) detectedText = barcodes[0].rawValue;
+                        } catch (e) {}
+                    }
+
+                    if (detectedText) {
+                        document.getElementById('debug-scan').textContent = "Terbaca: " + detectedText;
+                        handleScannedCode(detectedText);
+                    }
+                }, 250);
+
+            } catch (err) {
+                showToast("Gagal akses kamera", true);
             }
         }
-    }
 
-    async function processUploadSequence(blob, fileName, mimeType) {
-        try {
-            document.getElementById('txt-capture').textContent = "MENDAPATKAN TIKET...";
-            const res1 = await fetch(GAS_API_URL, {
-                method: 'POST', body: JSON.stringify({ action: 'getUploadUrl', fileName, mimeType }), headers: {'Content-Type': 'text/plain'}
-            }).then(r => r.json());
-            if(!res1.success) throw new Error(res1.message);
+        function handleScannedCode(scannedValue) {
+            let sn = scannedValue.trim();
+            let foundJenis = null;
+            let realSN = sn;
 
-            document.getElementById('txt-capture').textContent = "MENGUNGGAH FILE...";
-            const fileId = await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open("PUT", res1.uploadUrl, true);
-                xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).id); else reject("Upload Gagal"); };
-                xhr.send(blob);
-            });
-
-            document.getElementById('txt-capture').textContent = "MENYIMPAN KE SHEET...";
-            const now = new Date();
-            const timeStr = now.toISOString().slice(0,19).replace('T',' ');
-            const payloadForm = {
-                action: 'submitStoData',
-                data: {
-                    timestamp: timeStr, sn: currSN, jenisAsset: currJenis,
-                    fisikAsset: document.getElementById('inp-fisik').value,
-                    statusAsset: document.getElementById('inp-status').value,
-                    penggunaan: document.getElementById('inp-penggunaan').value,
-                    kondisi: document.getElementById('inp-kondisi').value,
-                    penyebabDamage: document.getElementById('inp-penyebab').value,
-                    mediaType: currMediaType, fileId: fileId
+            for (let key in masterDbCache) {
+                if (key.toUpperCase() === sn.toUpperCase()) {
+                    foundJenis = masterDbCache[key];
+                    realSN = key;
+                    break;
                 }
-            };
+            }
 
-            const res3 = await fetch(GAS_API_URL, {
-                method: 'POST', body: JSON.stringify(payloadForm), headers: {'Content-Type': 'text/plain'}
-            }).then(r => r.json());
+            // Jika tidak ada di DB, abaikan senyap
+            if (!foundJenis) return;
 
-            if(res3.success) {
-                showToast("✅ Berhasil Disimpan!");
-                cancelStudio();
-            } else { throw new Error(res3.message); }
-        } catch(e) {
-            showToast("❌ Error: " + e.message, true);
-            document.getElementById('btn-capture').disabled = false;
-            document.getElementById('btn-cancel').disabled = false;
-            document.getElementById('txt-capture').textContent = "COBA LAGI";
+            if (scanInterval) clearInterval(scanInterval);
+            if (streamActive) streamActive.getTracks().forEach(t => t.stop());
+
+            currSN = realSN;
+            currJenis = foundJenis;
+            currMediaType = (currJenis.toLowerCase().includes("laptop") || currJenis.toLowerCase().includes("smartphone")) ? "video" : "photo";
+            
+            document.getElementById('scanner-view').classList.add('hidden');
+            document.getElementById('accordion-view').classList.add('hidden');
+            document.getElementById('studio-view').classList.remove('hidden');
+            document.getElementById('studio-view').classList.add('flex');
+
+            document.getElementById('form-sn').textContent = currSN;
+            document.getElementById('txt-capture').textContent = currMediaType === "video" ? "MULAI REKAM VIDEO" : "JEPRET FOTO & UPLOAD";
+
+            startCctvStream();
         }
-    }
-</script>
+
+        function cancelStudio() {
+            if (cctvInterval) clearInterval(cctvInterval);
+            if (streamActive) streamActive.getTracks().forEach(t => t.stop());
+
+            document.getElementById('studio-view').classList.add('hidden');
+            document.getElementById('studio-view').classList.remove('flex');
+            document.getElementById('accordion-view').classList.remove('hidden');
+            document.getElementById('scanner-view').classList.remove('hidden');
+            startNativeScanner();
+        }
+
+        function checkKondisi() {
+            const val = document.getElementById('inp-kondisi').value;
+            const box = document.getElementById('box-damage');
+            if (val === "Damaged") { box.classList.remove('hidden'); box.classList.add('flex'); }
+            else { box.classList.add('hidden'); box.classList.remove('flex'); }
+        }
+
+        async function startCctvStream() {
+            const video = document.getElementById('raw-video');
+            const canvas = document.getElementById('cctv-canvas');
+            const ctx = canvas.getContext('2d');
+
+            try {
+                streamActive = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, 
+                    audio: false
+                });
+                video.srcObject = streamActive;
+                video.onplay = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    cctvInterval = setInterval(() => {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        ctx.fillStyle = "rgba(0, 0, 0, 0.6)"; 
+                        ctx.fillRect(10, canvas.height - 65, canvas.width - 20, 55); 
+                        
+                        ctx.fillStyle = "white";
+                        ctx.font = "bold 14px monospace";
+                        ctx.fillText(`SN: ${currSN} | ${currJenis}`, 15, canvas.height - 40);
+                        
+                        const now = new Date();
+                        const timeStr = now.toISOString().slice(0,19).replace('T',' ');
+                        ctx.font = "11px monospace";
+                        ctx.fillText(`${timeStr} | ${locString}`, 15, canvas.height - 20);
+                    }, 1000 / 30); 
+                };
+            } catch (err) {}
+        }
+
+        function executeCapture() {
+            const btn = document.getElementById('btn-capture');
+            if (currMediaType === "photo") {
+                const canvas = document.getElementById('cctv-canvas');
+                canvas.toBlob((blob) => {
+                    processUploadSequence(blob, `${currSN}_${Date.now()}.jpg`, 'image/jpeg');
+                }, 'image/jpeg', 0.85);
+            } else {
+                if (!isRecording) {
+                    const canvas = document.getElementById('cctv-canvas');
+                    const stream = canvas.captureStream(30);
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                    recordedChunks = [];
+                    mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
+                    mediaRecorder.onstop = () => {
+                        const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+                        processUploadSequence(blob, `${currSN}_${Date.now()}.webm`, blob.type);
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    btn.classList.replace('bg-gray-800', 'bg-red-600');
+                    document.getElementById('txt-capture').textContent = "STOP & UPLOAD";
+                    document.getElementById('btn-cancel').disabled = true;
+                } else {
+                    isRecording = false;
+                    mediaRecorder.stop();
+                    btn.classList.replace('bg-red-600', 'bg-gray-400');
+                    btn.disabled = true;
+                    document.getElementById('txt-capture').textContent = "MENGUNGGAH...";
+                }
+            }
+        }
+
+        async function processUploadSequence(blob, fileName, mimeType) {
+            try {
+                document.getElementById('txt-capture').textContent = "MENDAPATKAN TIKET...";
+                const res1 = await fetch(GAS_API_URL, {
+                    method: 'POST', body: JSON.stringify({ action: 'getUploadUrl', fileName, mimeType }), headers: {'Content-Type': 'text/plain'}
+                }).then(r => r.json());
+                if(!res1.success) throw new Error(res1.message);
+
+                document.getElementById('txt-capture').textContent = "MENGUNGGAH FILE...";
+                const fileId = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open("PUT", res1.uploadUrl, true);
+                    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText).id); else reject("Upload Gagal"); };
+                    xhr.send(blob);
+                });
+
+                document.getElementById('txt-capture').textContent = "MENYIMPAN KE SHEET...";
+                const now = new Date();
+                const timeStr = now.toISOString().slice(0,19).replace('T',' ');
+                const payloadForm = {
+                    action: 'submitStoData',
+                    data: {
+                        timestamp: timeStr, sn: currSN, jenisAsset: currJenis,
+                        fisikAsset: document.getElementById('inp-fisik').value,
+                        statusAsset: document.getElementById('inp-status').value,
+                        penggunaan: document.getElementById('inp-penggunaan').value,
+                        kondisi: document.getElementById('inp-kondisi').value,
+                        penyebabDamage: document.getElementById('inp-penyebab').value,
+                        mediaType: currMediaType, fileId: fileId
+                    }
+                };
+
+                const res3 = await fetch(GAS_API_URL, {
+                    method: 'POST', body: JSON.stringify(payloadForm), headers: {'Content-Type': 'text/plain'}
+                }).then(r => r.json());
+
+                if(res3.success) {
+                    showToast("✅ Berhasil Disimpan!");
+                    cancelStudio();
+                } else { throw new Error(res3.message); }
+            } catch(e) {
+                showToast("❌ Error: " + e.message, true);
+                document.getElementById('btn-capture').disabled = false;
+                document.getElementById('btn-cancel').disabled = false;
+                document.getElementById('txt-capture').textContent = "COBA LAGI";
+            }
+        }
+    </script>
+</body>
+</html>
