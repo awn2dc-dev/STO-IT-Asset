@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart STO Kiosk</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
 
     <!-- Konfigurasi Tema Greyscale -->
     <script>
@@ -17,24 +16,19 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
-        /* Layout Terkunci Anti-Scroll */
         body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #f3f4f6; color: #111827; margin: 0; padding: 0; height: 100vh; width: 100vw; }
         #app-container { display: flex; flex-direction: column; height: 100%; width: 100%; max-width: 600px; margin: 0 auto; background: white; box-shadow: 0 0 15px rgba(0,0,0,0.1); position: relative; }
         
-        /* Scrollbar Lokal */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
         
-        /* Kamera Container Fix */
         #scanner-view { width: 100%; flex: 1; background-color: #000; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; }
-        #reader { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; }
-        #reader video { object-fit: cover; width: 100%; height: 100%; display: block !important; }
+        #camera-feed { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
         
         #studio-view { width: 100%; flex: 1; background-color: #000; position: relative; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
         #cctv-canvas { width: 100%; height: 100%; object-fit: cover; }
         
-        /* Toast Notification */
         .toast { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); background-color: #1f2937; color: white; padding: 0.75rem 1.5rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; text-align: center; width: max-content; max-width: 90%; }
         .toast.show { opacity: 1; }
         .toast.error { background-color: #ef4444; }
@@ -44,10 +38,9 @@
 
     <div id="app-container">
         
-        <!-- ================= 1. HEADER (TETAP) ================= -->
         <div class="bg-white border-b border-gray-300 shadow-sm shrink-0 z-20">
             <div class="p-3 flex justify-between items-center bg-gray-100">
-                <h1 class="text-lg font-bold tracking-tight text-gray-800">STO IT ASSET (DEBUG MODE)</h1>
+                <h1 class="text-lg font-bold tracking-tight text-gray-800">STO IT ASSET (ULTIMATE)</h1>
                 <button onclick="fetchInitialData()" class="p-2 bg-white rounded border border-gray-300 shadow-sm active:bg-gray-200 text-xs font-bold text-gray-600 flex gap-1 items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Sinkron
                 </button>
@@ -57,24 +50,23 @@
             </div>
         </div>
 
-        <!-- ================= 2. AKORDION SUMMARY ================= -->
         <div id="accordion-view" class="bg-gray-50 p-2 shrink-0 border-b border-gray-300 max-h-[25vh] overflow-y-auto custom-scrollbar">
             <div class="text-center py-4 text-gray-400 text-xs font-medium animate-pulse">Mengunduh Master Data...</div>
         </div>
 
-        <!-- ================= 3. SCANNER VIEW ================= -->
+        <!-- SCANNER VIEW -->
         <div id="scanner-view">
-            <div id="reader" class="w-full h-full"></div>
-            <div class="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] px-2 py-1 rounded" id="debug-scan">Standby...</div>
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <canvas id="hidden-canvas" class="hidden"></canvas>
+            <div class="absolute top-2 left-2 z-10 bg-black/60 text-white text-[10px] px-2 py-1 rounded" id="debug-scan">Mencari Barcode...</div>
             
             <div class="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-10">
-                <div class="bg-black/70 backdrop-blur px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest shadow-lg border border-gray-600">SCAN APA SAJA (DEBUG)</div>
+                <div class="bg-black/70 backdrop-blur px-5 py-2 rounded-full text-white text-xs font-mono tracking-widest shadow-lg border border-gray-600">ARAHKAN KE BARCODE</div>
             </div>
         </div>
 
-        <!-- ================= 4. CCTV STUDIO & SMART FORM ================= -->
+        <!-- STUDIO FORM -->
         <div id="studio-view" class="hidden bg-gray-100 flex-1 flex-col h-full relative">
-            
             <div class="relative w-full h-[40vh] bg-black shrink-0 overflow-hidden border-b-4 border-gray-800">
                 <video id="raw-video" class="hidden" autoplay playsinline muted></video>
                 <canvas id="cctv-canvas"></canvas>
@@ -85,7 +77,6 @@
             </div>
 
             <div class="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 bg-gray-50 relative pb-20">
-                
                 <div class="bg-white p-3 rounded border border-gray-200 shadow-sm flex flex-col gap-1">
                     <div class="flex justify-between items-center border-b border-gray-100 pb-1">
                         <span class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">SN Asset</span>
@@ -168,19 +159,18 @@
     <script>
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxP-nT3fjTL2dRPpK_XyF7kipz5WAPc2jbaCOYwGk0b_RFyr_H-Eupcvh-DtgYRsg9bdA/exec";
         
-        let html5QrCode = null;
         let masterDbCache = {}; 
         let currSN = "";
-        let currJenis = "PDA"; // Default jenis untuk debug
+        let currJenis = "PDA";
         let currMediaType = "photo";
         let locString = "Lokasi: Aktif";
         
         let streamActive = null;
+        let scanInterval = null;
         let cctvInterval = null;
         let isRecording = false;
         let mediaRecorder;
         let recordedChunks = [];
-        let recordTimer = 0;
         let recordInterval;
 
         function showToast(msg, isError = false) {
@@ -197,7 +187,7 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             fetchInitialData();
-            initScanner();
+            startNativeScanner();
         });
 
         function fetchInitialData() {
@@ -223,32 +213,76 @@
             }
         }
 
-        function initScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 15, qrbox: { width: 280, height: 120 } };
-            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(e => showToast("Kamera Gagal", true));
+        // =========================================================================
+        // NATIVE BARCODE DETECTOR (BEBAS BUG HTML5-QRCODE)
+        // =========================================================================
+        async function startNativeScanner() {
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('hidden-canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            try {
+                streamActive = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    audio: false 
+                });
+                video.srcObject = streamActive;
+                await video.play();
+
+                // Cek apakah browser mendukung BarcodeDetector API bawaan
+                let barcodeDetector = null;
+                if ('BarcodeDetector' in window) {
+                    try {
+                        barcodeDetector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'qr_code', 'data_matrix'] });
+                    } catch (e) {}
+                }
+
+                scanInterval = setInterval(async () => {
+                    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+                    
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    let detectedText = null;
+
+                    if (barcodeDetector) {
+                        try {
+                            const barcodes = await barcodeDetector.detect(canvas);
+                            if (barcodes.length > 0) detectedText = barcodes[0].rawValue;
+                        } catch (e) {}
+                    }
+
+                    if (detectedText) {
+                        document.getElementById('debug-scan').textContent = "Terbaca: " + detectedText;
+                        handleScannedCode(detectedText);
+                    }
+                }, 250); // Scan tiap 0.25 detik
+
+            } catch (err) {
+                showToast("Gagal akses kamera", true);
+            }
         }
 
-        // ==========================================
-        // LOGIKA PAKSA BUKA (BYPASS VALIDASI DATABASE)
-        // ==========================================
-        function onScanSuccess(decodedText) {
-            let scannedValue = decodedText.trim();
-            document.getElementById('debug-scan').textContent = "Terbaca: " + scannedValue;
-
-            // Cek apakah ada di database untuk ambil jenis aslinya, kalau tidak ada, pakai "PDA"
+        function handleScannedCode(scannedValue) {
+            let sn = scannedValue.trim();
+            
+            // BYPASS SEMENTARA: Apapun yang ter-scan langsung buka form (Debug Total)
             let jenisAsset = "PDA";
             for (let key in masterDbCache) {
-                if (key.toUpperCase() === scannedValue.toUpperCase()) {
+                if (key.toUpperCase() === sn.toUpperCase()) {
                     jenisAsset = masterDbCache[key];
-                    scannedValue = key; // Ambil aslinya
+                    sn = key;
                     break;
                 }
             }
 
-            // Langsung eksekusi suara dan buka form!
+            // Hentikan scanner loop
+            if (scanInterval) clearInterval(scanInterval);
+            if (streamActive) streamActive.getTracks().forEach(t => t.stop());
+
             document.getElementById('chime').play().catch(()=>{});
-            currSN = scannedValue;
+            currSN = sn;
             currJenis = jenisAsset;
             
             const jLower = currJenis.toLowerCase();
@@ -260,26 +294,6 @@
         function openStudioForm() {
             document.getElementById('scanner-view').classList.add('hidden');
             document.getElementById('accordion-view').classList.add('hidden');
-
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    setTimeout(() => switchUiToStudio(), 300);
-                }).catch(err => {
-                    setTimeout(() => switchUiToStudio(), 300);
-                });
-            } else {
-                switchUiToStudio();
-            }
-        }
-
-        function checkKondisi() {
-            const val = document.getElementById('inp-kondisi').value;
-            const box = document.getElementById('box-damage');
-            if (val === "Damaged") { box.classList.remove('hidden'); box.classList.add('flex'); } 
-            else { box.classList.add('hidden'); box.classList.remove('flex'); }
-        }
-
-        function switchUiToStudio() {
             document.getElementById('studio-view').classList.remove('hidden');
             document.getElementById('studio-view').classList.add('flex');
 
@@ -290,13 +304,20 @@
             startCctvStream();
         }
 
+        function checkKondisi() {
+            const val = document.getElementById('inp-kondisi').value;
+            const box = document.getElementById('box-damage');
+            if (val === "Damaged") { box.classList.remove('hidden'); box.classList.add('flex'); } 
+            else { box.classList.add('hidden'); box.classList.remove('flex'); }
+        }
+
         function cancelStudio() {
             stopCctvStream();
             document.getElementById('studio-view').classList.add('hidden');
             document.getElementById('studio-view').classList.remove('flex');
             document.getElementById('accordion-view').classList.remove('hidden');
             document.getElementById('scanner-view').classList.remove('hidden');
-            initScanner();
+            startNativeScanner();
         }
 
         async function startCctvStream() {
